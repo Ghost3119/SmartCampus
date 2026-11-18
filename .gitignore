@@ -1,0 +1,13 @@
+# Herramientas locales y salidas de compilación
+.idea/
+.gradle/
+.kotlin/
+**/build/
+local.properties
+*.iml
+captures/
+.externalNativeBuild/
+.cxx/
+.DS_Store
+*.jks
+*.keystore
