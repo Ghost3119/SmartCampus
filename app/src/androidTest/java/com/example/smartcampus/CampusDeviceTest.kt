@@ -41,6 +41,56 @@ class CampusDeviceTest {
         navigate("Inicio")
         compose.onNodeWithText("Resumen del campus").assertIsDisplayed()
     }
+    @Test fun displayRotatesPausesAndReturns() {
+        compose.waitUntil(30000) { compose.onAllNodesWithText("Resumen del campus").fetchSemanticsNodes().isNotEmpty() }
+        navigate("Configuración")
+        compose.onNodeWithText("Rotación ·", substring = true).performScrollTo().performClick()
+        compose.onNodeWithText("8 s").performClick()
+        compose.activityRule.scenario.recreate()
+        compose.waitUntil(30000) { compose.onAllNodesWithText("Rotación · 8 s", substring = true).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Iniciar Display Mode").performScrollTo().performClick()
+        compose.waitForIdle()
+        compose.mainClock.advanceTimeBy(8300)
+        compose.waitUntil(16000) { compose.onAllNodesWithText("Horarios del día").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Pausar").performClick()
+        compose.mainClock.advanceTimeBy(9000)
+        compose.onNodeWithText("Horarios del día").assertExists()
+        compose.onNodeWithText("Reanudar").performClick()
+        compose.waitForIdle()
+        compose.mainClock.advanceTimeBy(8300)
+        compose.waitUntil(16000) { compose.onAllNodesWithText("Próximos eventos").fetchSemanticsNodes().isNotEmpty() }
+        compose.activityRule.scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
+        compose.onNodeWithText("Preferencias de pantalla").assertExists()
+        if (compose.activity.packageManager.hasSystemFeature("android.software.leanback")) {
+            compose.onNodeWithText("Iniciar Display Mode").assertIsFocused()
+        }
+    }
+    @Test fun remoteMovesFocusAndOpensSchedule() {
+        val tv = compose.activity.packageManager.hasSystemFeature("android.software.leanback")
+        Assume.assumeTrue(tv)
+        compose.waitUntil(30000) { compose.onAllNodesWithText("Resumen del campus").fetchSemanticsNodes().isNotEmpty() }
+        val instrumentation = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
+        instrumentation.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_DPAD_DOWN)
+        compose.onNodeWithText("Horarios").assertIsFocused()
+        instrumentation.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_DPAD_CENTER)
+        compose.onNodeWithText("Horarios académicos").assertIsDisplayed()
+    }
+    @Test fun adminCreatesNoticeFromForm() {
+        compose.waitUntil(30000) { compose.onAllNodesWithText("Resumen del campus").fetchSemanticsNodes().isNotEmpty() }
+        navigate("Configuración")
+        compose.onNodeWithContentDescription("Editar avisos y eventos").performScrollTo().performClick()
+        navigate("Avisos")
+        compose.onNodeWithText("Crear aviso").performClick()
+        val title = "Prueba " + UUID.randomUUID().toString().take(8)
+        compose.onNodeWithText("Guardar").assertIsNotEnabled()
+        compose.onNodeWithText("Título").performTextInput(title)
+        compose.onNodeWithText("Descripción").performTextInput("Comunicado de prueba")
+        compose.onNodeWithText("Guardar").performScrollTo().performClick()
+        compose.onNodeWithText(title).performScrollTo().performClick()
+        compose.onNodeWithText("Eliminar").performClick()
+        compose.onNodeWithText("Eliminar").performClick()
+        compose.waitUntil { compose.onAllNodesWithText(title).fetchSemanticsNodes().isEmpty() }
+    }
     @Test fun boardPersistsAcrossDatabaseReopen() = runBlocking {
         val ctx = ApplicationProvider.getApplicationContext<Context>()
         val file = "test-" + UUID.randomUUID()

@@ -10,7 +10,7 @@ Una persona que llega al campus necesita localizar su siguiente clase, encontrar
 
 ## Arquitectura
 
-La actividad aloja un NavHost de Compose con seis destinos. La barra lateral aparece a partir de 840 dp de ancho y en ventanas compactas el encabezado permite abrir un menú. El tema sigue la preferencia guardada o el ajuste del sistema. Las superficies de consulta tienen desplazamiento para admitir pantallas verticales.
+La actividad aloja un NavHost con seis módulos y el destino Display. La configuración UI_MODE_TYPE_TELEVISION activa la navegación lateral y los márgenes de seguridad. En dispositivos táctiles se usa una barra superior a partir de 760 dp y un menú en ventanas más pequeñas. El tema sigue la preferencia guardada o el ajuste del sistema. Las superficies de consulta tienen desplazamiento para admitir pantallas verticales.
 
 El contenedor de la aplicación conserva una instancia de Room y de las preferencias. El ViewModel observa cambios en el repositorio, recibe la hora del dispositivo y publica estados de carga, contenido y error. Las pantallas observan ese estado según el ciclo de vida de la actividad. Las escrituras se ejecutan en coroutines y los flujos de las consultas actualizan la interfaz.
 
@@ -34,16 +34,32 @@ Desde **Inicio**, consulta las métricas y abre el horario del grupo preferido. 
 
 Las pruebas JVM fijan una hora conocida para reproducir el inicio y fin de una clase, la siguiente sesión semanal y la disponibilidad de un aula. Comprueban los filtros y la ausencia de cruces de grupo, aula o docente en los ejemplos. La prueba instrumentada de navegación abre los seis destinos y usa los filtros de día y aula. Una segunda prueba instrumentada crea y edita publicaciones en una base temporal, cierra y vuelve a abrir Room, verifica los valores y comprueba el borrado.
 
-### Resultados obtenidos
+### Implementación del diseño aprobado
 
-La compilación debug finalizó correctamente. Pasaron seis pruebas JVM y dos pruebas instrumentadas, sin fallos ni omisiones. Se usó un AVD Android 17 (API 37) con área de pantalla de 1280 × 800 y densidad de 160 dpi para comprobar el diseño de tablet. También se abrió el menú compacto en 420 × 850. El recorrido de capturas se realizó en modo avión con Wi-Fi desactivado.
+[SmartCampus — UTC | UI/UX Design System](https://www.figma.com/design/RsZcRdt2WvpSlCWeC0Bw9T) contiene las referencias de TV (1920 × 1080) y tablet (1280 × 800). CampusTheme centraliza los colores de fondo, superficies, texto, foco y selección, las esquinas y la tipografía Inter local. El PNG institucional y la ilustración del campus provienen del archivo aprobado. El icono propio de la aplicación identifica el lanzador.
 
-## Evidencia visual
-
-| Captura del emulador | Contenido |
+| Frames | Implementación Compose y adaptación |
 | --- | --- |
-| [Inicio en tablet](capturas/inicio-tablet.png) | Resumen, hora local, próxima clase y navegación lateral |
-| [Horario](capturas/horarios.png) | Sesiones del grupo 9IDGSB, docentes y estados |
-| [Aula A-101](capturas/detalle-aula.png) | Capacidad, planta y siguientes sesiones |
-| [Edición local](capturas/editor.png) | Formulario para crear un aviso |
-| [Inicio compacto](capturas/inicio-compacto.png) | Navegación y tarjetas en orientación vertical |
+| Inicio | Dashboard muestra cuatro tarjetas con datos de Room. Fecha, saludo, grupo y disponibilidad se calculan en el dispositivo. Las publicaciones destacadas abren sus detalles. |
+| Horarios y aulas | AcademicScreens usa cuadrículas adaptativas, selectores, búsqueda y estados vacíos. En aulas, el detalle es un diálogo desplazable con el foco inicial en Cerrar. |
+| Avisos y eventos | Board muestra categorías, cartelera y agenda. El detalle incluye acciones locales cuando está habilitada la administración. |
+| Configuración y administración | La cuadrícula de configuración habilita la edición y da acceso a ambas colecciones. BoardEditor implementa los formularios de creación y edición en página. El borrado y la restauración requieren confirmación. |
+| Display Mode | DisplayMode consulta el mismo estado Ready y recorre cinco escenas con transición breve. Se añadieron controles de reproducción y salida al diseño de exposición. El botón Atrás recupera el destino anterior. |
+
+Los valores de la paleta corresponden al diseño del producto. En claro, el fondo es `#F2F6F3`, las superficies son blancas, el texto es `#142822` y el primario es `#006448`. El foco usa `#795300` y la selección usa `#CCEBDD`. En oscuro, el fondo es `#0C191B` y el foco es `#FFE186`. El esquema de Room conserva sus entidades y su versión. DataStore incorpora únicamente la preferencia de intervalo.
+
+### Verificación y evidencia
+
+Se ejecutaron las seis pruebas JVM y las cinco instrumentadas en Android TV API 36. Pasaron las once. En el AVD API 37 configurado a 1280 × 800 pasaron las cuatro pruebas táctiles y de persistencia; la prueba exclusiva de mando se omite en dispositivos sin Leanback. La suite instrumentada incluye el recorrido de módulos y filtros, reapertura de Room, un recorrido de creación y eliminación de aviso, cambio de foco con DPAD y apertura con OK, así como persistencia del intervalo, rotación, pausa, reanudación y regreso desde Display Mode. El último escenario usa el reloj de pruebas de Compose para avanzar los intervalos.
+
+| Captura | Escenario |
+| --- | --- |
+| [TV, Figma y Android](capturas/comparativa-tv.png) | Navegación lateral, foco, cuatro tarjetas y recurso institucional |
+| [Tablet, Figma y Android](capturas/comparativa-tablet.png) | Navegación superior y composición horizontal |
+| [Horarios](capturas/horarios.png) | Selector de día y grupo, materia y docente |
+| [Detalle de aula](capturas/detalle-aula.png) | Próximas sesiones |
+| [Administración](capturas/editor.png) | Formulario local |
+| [Vista compacta](capturas/inicio-compacto.png) | Adaptación vertical |
+| [Display Mode](capturas/display-tv.png) | Pantalla de exposición en el AVD de TV |
+
+La comparación se hace con datos y hora reales del emulador. Las diferencias en el texto y el número de aulas libres dependen del momento de la consulta. Las tarjetas pueden crecer con el contenido y las pantallas se desplazan cuando falta espacio. Las dimensiones finales dependen de la densidad, la escala de fuente y las barras del sistema.

@@ -50,6 +50,7 @@ class CampusViewModel(app: Application) : AndroidViewModel(app) {
     }
     fun group(value: String) = update { prefs.group(value) }
     fun theme(value: String) = update { prefs.theme(value) }
+    fun interval(seconds: Int) = update { prefs.interval(seconds) }
     fun fullscreen(value: Boolean) = update { prefs.fullscreen(value) }
     fun restore() = update("Datos de demostración restaurados.") { repo.restore() }
     fun save(item: Notice, done: () -> Unit) = update("Aviso guardado.", done) { check(admin.value); repo.dao.save(item) }

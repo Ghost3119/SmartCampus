@@ -2,86 +2,65 @@ package com.example.smartcampus.ui.screens
 
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.*
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.*
-import com.example.smartcampus.ui.components.*
-import com.example.smartcampus.data.local.*
-import com.example.smartcampus.ui.*
+import androidx.compose.ui.text.font.FontWeight
+import com.example.smartcampus.ui.CampusState
 import com.example.smartcampus.domain.*
+import com.example.smartcampus.ui.components.*
 import androidx.compose.ui.res.painterResource
 import com.example.smartcampus.R
 
-@Composable fun Dashboard(s: CampusState.Ready, go: (String) -> Unit) {
-    val a = s.campus.academic
+private data class Summary(val label: String, val title: String, val detail: String, val destination: String)
+
+@Composable fun Dashboard(s: CampusState.Ready, go: (String) -> Unit, publication: (String, Long) -> Unit) {
+    val academic = s.campus.academic
     val group = s.settings.group
-    val next = upcoming(a.sessions.filter { it.groupCode == group }, s.now).firstOrNull()
-    val free = a.rooms.count { available(it.name, a.sessions, s.now) }
-    val featured = s.campus.notices.filter { it.priority == "Alta" }
-    val events = upcomingEvents(s.campus.events, s.now)
+    val sessions = academic.sessions.filter { it.groupCode == group }
+    val current = sessions.find { status(it, s.now) == "En curso" }
+    val next = upcoming(sessions, s.now).firstOrNull()
+    val session = current ?: next?.session
+    val notice = s.campus.notices.firstOrNull { it.priority == "Alta" }
+    val event = upcomingEvents(s.campus.events, s.now).firstOrNull()
+    val free = academic.rooms.count { available(it.name, academic.sessions, s.now) }
+    val cards = listOf(
+        Summary(if (current != null) "En curso" else "Próxima clase", session?.subject ?: "Sin clases",
+            session?.let { (if (current == null) next?.date?.label("EEE d MMM") + "   ·   " else "") + clock(it.start) + " — " + clock(it.end) + "   ·   " + it.room }.orEmpty(), "Horarios"),
+        Summary("Disponibilidad estimada", "$free de ${academic.rooms.size} aulas libres", "Consultar espacios", "Aulas"),
+        Summary("Aviso destacado", notice?.title ?: "Sin avisos destacados", notice?.let { it.category + "   ·   Prioridad alta" } ?: "Consultar cartelera", "Avisos"),
+        Summary("Próximo evento", event?.title ?: "Sin eventos próximos", event?.let { LocalDateLabel(it.date) + "   ·   " + it.place } ?: "Consultar agenda", "Eventos"))
     Page {
-        Surface(shape = RoundedCornerShape(20.dp), color = Color(0xFF183E70), contentColor = Color.White) {
-            BoxWithConstraints(Modifier.fillMaxWidth()) {
-                val showArt = maxWidth > 550.dp
-                if (showArt) CampusDrawing(Modifier.align(Alignment.CenterEnd).width(310.dp).height(152.dp))
-                Column(Modifier.padding(24.dp).fillMaxWidth(if (showArt) .62f else 1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                    Text("PANEL DEL CAMPUS", style = MaterialTheme.typography.labelMedium, letterSpacing = 2.sp, color = Color(0xFFA9D9FC))
-                    val greeting = when(s.now.hour) { in 6..11 -> "Buenos días"; in 12..18 -> "Buenas tardes"; else -> "Buenas noches" }
-                    Text(greeting, style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-                    Text(s.now.toLocalDate().label("EEEE, d 'de' MMMM") + "   ·   Grupo " + group, color = Color(0xFFD4E6FE))
-                }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Head(when(s.now.hour) { in 6..11 -> "Buenos días"; in 12..18 -> "Buenas tardes"; else -> "Buenas noches" })
+                Sub(s.now.toLocalDate().label("EEEE d 'de' MMMM") + "   /   Grupo " + group)
+            }
+            BoxWithConstraints(Modifier.fillMaxWidth(.28f)) {
+                Image(painterResource(R.drawable.arquitectura), null, Modifier.widthIn(max = 246.dp).fillMaxWidth().aspectRatio(370f/145))
             }
         }
-        Title("Resumen del campus")
-        BoxWithConstraints {
-            val columns = if (maxWidth >= 640.dp) 3 else if (maxWidth >= 430.dp) 2 else 1
-            val tiles = listOf(Triple("Aulas disponibles", "$free / ${a.rooms.size}", "Aulas"), Triple("Avisos importantes", featured.size.toString(), "Avisos"), Triple("Eventos próximos", events.size.toString(), "Eventos"))
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                tiles.chunked(columns).forEach { row ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        row.forEach { (label, count, route) ->
-                            Panel(Modifier.weight(1f), { go(route) }) {
-                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                                    Text(count, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-                                    Icon(painterResource(when(route) { "Aulas" -> R.drawable.nav_aulas; "Avisos" -> R.drawable.nav_avisos; else -> R.drawable.nav_eventos }), null, tint = MaterialTheme.colorScheme.primary)
-                                }
-                                Sub(label)
-                            }
-                        }
-                        repeat(columns-row.size) { Spacer(Modifier.weight(1f)) }
-                    }
+        if (!isTelevision() && androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp < 760) Sub("Resumen del campus")
+        CardGrid(cards) { card ->
+            Panel(Modifier.fillMaxWidth(), {
+                when {
+                    card.destination == "Avisos" && notice != null -> publication("Avisos", notice.id)
+                    card.destination == "Eventos" && event != null -> publication("Eventos", event.id)
+                    else -> go(card.destination)
+                }
+            }, selected = card.destination == "Horarios") {
+                Box(Modifier.fillMaxWidth()) {
+                Column(Modifier.fillMaxWidth().padding(end = 12.dp).heightIn(min = 128.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(card.label.uppercase(), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                    Title(card.title); Sub(card.detail)
+                    if (current != null && card.destination == "Horarios" && next != null) Sub("Después   /   " + clock(next.session.start) + "   " + next.session.subject)
+                }
+                Text("↗", Modifier.align(Alignment.BottomEnd), color = MaterialTheme.colorScheme.primary)
                 }
             }
-        }
-        BoxWithConstraints {
-            val classCard: @Composable (Modifier) -> Unit = { mod ->
-                Panel(mod, { go("Horarios") }) {
-                    Tag("Próxima clase  ·  $group")
-                    if (next == null) Sub("Sin sesiones programadas.") else {
-                        Spacer(Modifier.height(5.dp)); Title(next.session.subject)
-                        Text(next.date.label("EEEE d MMM") + "  ·  " + clock(next.session.start) + " – " + clock(next.session.end))
-                        Sub(next.session.room + "  ·  " + a.rooms.first { it.name == next.session.room }.building)
-                    }
-                    TextButton({ go("Horarios") }) { Text("Consultar horarios  →") }
-                }
-            }
-            val boardCard: @Composable (Modifier) -> Unit = { mod ->
-                Panel(mod) {
-                    Title("Cartelera universitaria")
-                    featured.firstOrNull()?.let { TextButton({ go("Avisos") }) { Text(it.title) } }
-                    events.firstOrNull()?.let { HorizontalDivider(); TextButton({ go("Eventos") }) { Text(LocalDateLabel(it.date) + "   ·   " + it.title) } }
-                    if (featured.isEmpty() && events.isEmpty()) Sub("Sin publicaciones destacadas.")
-                }
-            }
-            if (maxWidth >= 680.dp) Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) { classCard(Modifier.weight(1f)); boardCard(Modifier.weight(1f)) }
-            else Column(verticalArrangement = Arrangement.spacedBy(12.dp)) { classCard(Modifier.fillMaxWidth()); boardCard(Modifier.fillMaxWidth()) }
         }
     }
 }
 internal fun LocalDateLabel(date: String) = java.time.LocalDate.parse(date).label("d MMM")
-

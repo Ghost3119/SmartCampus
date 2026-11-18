@@ -1,53 +1,67 @@
 package com.example.smartcampus.ui.screens
 
-import androidx.compose.ui.semantics.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.*
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.*
-import com.example.smartcampus.ui.components.*
-import com.example.smartcampus.data.local.*
-import com.example.smartcampus.ui.*
+import androidx.compose.ui.text.font.FontWeight
+import com.example.smartcampus.ui.CampusState
 import com.example.smartcampus.domain.*
+import com.example.smartcampus.ui.components.*
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.*
+import com.example.smartcampus.ui.CampusViewModel
 
-@Composable fun Configuration(s: CampusState.Ready, model: CampusViewModel) {
+@Composable fun Configuration(s: CampusState.Ready, model: CampusViewModel, manage: (String) -> Unit, startDisplay: () -> Unit) {
     var restore by rememberSaveable { mutableStateOf(false) }
+    var returningFromDisplay by rememberSaveable { mutableStateOf(false) }
+    val displayButton = remember { FocusRequester() }
+    val tv = isTelevision()
     val admin by model.admin.collectAsState()
     Page {
         Head("Configuración")
-        Panel(Modifier.fillMaxWidth()) {
-            Title("Preferencias de pantalla")
-            Choice("Grupo preferido", s.settings.group, s.campus.academic.groups.map { it.code }, model::group)
-            Choice("Tema", s.settings.theme, listOf("Sistema", "Claro", "Oscuro"), model::theme)
-            Toggle("Pantalla completa", s.settings.fullscreen, model::fullscreen)
+        Sub("Preferencias de pantalla")
+        CardGrid(listOf("Grupo preferido","Tema de pantalla","Pantalla completa","Administración local","Restaurar ejemplos","Acerca de SmartCampus"), 3) { name ->
+            Panel(Modifier.fillMaxWidth()) {
+                Title(name)
+                when (name) {
+                    "Grupo preferido" -> Choice("Grupo", s.settings.group, s.campus.academic.groups.map { it.code }, model::group)
+                    "Tema de pantalla" -> Choice("Tema", s.settings.theme, listOf("Sistema","Claro","Oscuro"), model::theme)
+                    "Pantalla completa" -> Toggle("Ocultar barras", s.settings.fullscreen, model::fullscreen)
+                    "Administración local" -> {
+                        Toggle("Editar avisos y eventos", admin) { model.admin.value = it }
+                        if (admin) {
+                            TextButton({ manage("Avisos") }, Modifier.campusFocus()) { Text("Gestionar avisos") }
+                            TextButton({ manage("Eventos") }, Modifier.campusFocus()) { Text("Gestionar eventos") }
+                        }
+                    }
+                    "Restaurar ejemplos" -> OutlinedButton({ restore = true }, Modifier.campusFocus()) { Text("Restaurar datos de demostración") }
+                    else -> Sub("Universidad Tecnológica de Coahuila · Unidad 3. Demostración académica con datos ficticios.")
+                }
+            }
         }
         Panel(Modifier.fillMaxWidth()) {
-            Title("Administración local")
-            Toggle("Editar avisos y eventos", admin) { model.admin.value = it }
-            Sub("Activa la edición y abre Avisos o Eventos para gestionar las publicaciones de este dispositivo.")
-            OutlinedButton({ restore = true }) { Text("Restaurar datos de demostración") }
-        }
-        Panel(Modifier.fillMaxWidth()) {
-            Title("Acerca de SmartCampus")
-            Text("Universidad Tecnológica de Coahuila · Unidad 3 de Desarrollo de Dispositivos Inteligentes.")
-            Sub("Demostración académica no oficial. Horarios, docentes y publicaciones son ficticios. La disponibilidad se estima con las sesiones registradas.")
+            Title("SmartCampus Display Mode")
+            Choice("Rotación", "${s.settings.rotationSeconds} s", listOf("8 s","12 s","20 s","30 s")) { model.interval(it.substringBefore(" ").toInt()) }
+            Button({ returningFromDisplay = true; startDisplay() }, Modifier.focusRequester(displayButton).campusFocus()) { Text("Iniciar Display Mode") }
+            LaunchedEffect(Unit) {
+                if (returningFromDisplay && tv) displayButton.requestFocus()
+                returningFromDisplay = false
+            }
         }
     }
     if (restore) Confirm("¿Restaurar la demostración?", "Se reemplazarán los avisos y eventos locales por los ejemplos iniciales con fechas actualizadas.", "Restaurar", { restore = false }) { model.restore(); restore = false }
 }
 @Composable private fun Toggle(label: String, value: Boolean, change: (Boolean) -> Unit) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().campusFocus().toggleable(value, role = Role.Switch, onValueChange = change)
+        .semantics { contentDescription = label }, verticalAlignment = Alignment.CenterVertically) {
         Text(label, Modifier.weight(1f))
-        Switch(value, change, Modifier.semantics { contentDescription = label })
+        Switch(value, null)
     }
 }
-
-
-
-

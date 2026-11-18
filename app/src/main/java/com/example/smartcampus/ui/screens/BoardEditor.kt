@@ -30,24 +30,32 @@ import java.time.LocalTime
     var busy by remember { mutableStateOf(false) }
     val message by model.message.collectAsState()
     LaunchedEffect(message) { if (message != null) busy = false }
-    AlertDialog(onDismissRequest = close, title = { Title((if (notice != null || event != null) "Editar " else "Crear ") + if (events) "evento" else "aviso") }, text = {
-        Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(title, { title = it }, singleLine = true, label = { Text("Título") })
-            OutlinedTextField(description, { description = it }, label = { Text("Descripción") })
-            OutlinedTextField(date, { date = it }, singleLine = true, isError = !validDate, label = { Text("Fecha (AAAA-MM-DD)") })
-            if (events) {
-                OutlinedTextField(time, { time = it }, singleLine = true, isError = !validTime, label = { Text("Hora (HH:mm)") })
-                OutlinedTextField(place, { place = it }, singleLine = true, label = { Text("Ubicación") })
-            } else {
-                Choice("Categoría", category, categories) { category = it }
-                Choice("Prioridad", priority, listOf("Normal", "Alta")) { priority = it }
+    Page {
+        Head((if (notice != null || event != null) "Editar " else "Crear ") + if (events) "evento" else "aviso")
+        Sub("Administración local   /   " + if (events) "Eventos" else "Avisos")
+        CardGrid(listOf("Título", "Descripción", "Fecha", "Clasificación"), 2) { field ->
+            Panel(Modifier.fillMaxWidth()) {
+                when (field) {
+                    "Título" -> OutlinedTextField(title, { title = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Título") })
+                    "Descripción" -> OutlinedTextField(description, { description = it }, Modifier.fillMaxWidth(), label = { Text("Descripción") })
+                    "Fecha" -> OutlinedTextField(date, { date = it }, Modifier.fillMaxWidth(), singleLine = true, isError = !validDate, label = { Text("Fecha (AAAA-MM-DD)") })
+                    else -> if (events) {
+                        OutlinedTextField(place, { place = it }, singleLine = true, label = { Text("Ubicación") })
+                        OutlinedTextField(time, { time = it }, singleLine = true, isError = !validTime, label = { Text("Hora (HH:mm)") })
+                    } else {
+                        Choice("Categoría", category, categories) { category = it }
+                        Choice("Prioridad", priority, listOf("Normal", "Alta")) { priority = it }
+                    }
+                }
             }
         }
-    }, dismissButton = { TextButton(close) { Text("Cancelar") } }, confirmButton = {
-        Button(enabled = !busy && title.isNotBlank() && description.isNotBlank() && validDate && (!events || validTime && place.isNotBlank()), onClick = {
-            busy = true
-            if (events) model.save(CampusEvent(event?.id ?: 0, title.trim(), description.trim(), place.trim(), date, time), close)
-            else model.save(Notice(notice?.id ?: 0, title.trim(), description.trim(), category, date, priority), close)
-        }) { Text("Guardar") }
-    })
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            OutlinedButton(close, Modifier.campusFocus()) { Text("Cancelar") }
+            Button(modifier = Modifier.campusFocus(), enabled = !busy && title.isNotBlank() && description.isNotBlank() && validDate && (!events || validTime && place.isNotBlank()), onClick = {
+                busy = true
+                if (events) model.save(CampusEvent(event?.id ?: 0, title.trim(), description.trim(), place.trim(), date, time), close)
+                else model.save(Notice(notice?.id ?: 0, title.trim(), description.trim(), category, date, priority), close)
+            }) { Text("Guardar") }
+        }
+    }
 }

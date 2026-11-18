@@ -31,8 +31,8 @@ private val days = DayOfWeek.entries.map { it.getDisplayName(TextStyle.FULL, spa
         }
         val sessions = timetable(a.sessions, group, day)
         if (sessions.isEmpty()) Panel(Modifier.fillMaxWidth()) { Title("Día sin clases"); Sub("Este grupo no tiene sesiones el día seleccionado.") }
-        sessions.forEach {
-            Panel(Modifier.fillMaxWidth()) {
+        CardGrid(sessions) {
+            Panel(Modifier.fillMaxWidth().then(if (isTelevision()) Modifier.campusFocus().focusable() else Modifier), selected = status(it, s.now) == "En curso") {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text(clock(it.start) + " – " + clock(it.end), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                     Tag(status(it, s.now))
@@ -61,7 +61,7 @@ private val days = DayOfWeek.entries.map { it.getDisplayName(TextStyle.FULL, spa
         }
         val matches = a.rooms.filter { it.name.contains(query.trim(), true) && (building == "Todos" || it.building == building) && (state == "Todas" || roomState(it) == state) }
         if (matches.isEmpty()) Sub("Ningún aula coincide con la búsqueda y los filtros.")
-        matches.forEach {
+        CardGrid(matches, 3) {
             Panel(Modifier.fillMaxWidth(), { selected = it.name }) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Title(it.name); Tag(roomState(it)) }
                 Sub("${it.building}   ·   ${it.floor}   ·   ${it.capacity} plazas")
