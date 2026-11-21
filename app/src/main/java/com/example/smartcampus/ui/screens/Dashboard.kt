@@ -20,7 +20,7 @@ private data class Summary(val label: String, val title: String, val detail: Str
     val academic = s.campus.academic
     val group = s.settings.group
     val sessions = academic.sessions.filter { it.groupCode == group }
-    val current = sessions.find { status(it, s.now) == "En curso" }
+    val current = sessions.find { classStatus(it, s.now) == ClassStatus.IN_PROGRESS }
     val next = upcoming(sessions, s.now).firstOrNull()
     val session = current ?: next?.session
     val notice = s.campus.notices.firstOrNull { it.priority == "Alta" }

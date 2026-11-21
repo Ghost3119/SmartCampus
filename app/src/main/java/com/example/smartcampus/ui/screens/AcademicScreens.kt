@@ -18,27 +18,75 @@ import java.time.DayOfWeek
 import java.time.format.TextStyle
 
 private val days = DayOfWeek.entries.map { it.getDisplayName(TextStyle.FULL, spanish).replaceFirstChar(Char::uppercase) }
-@Composable fun Schedule(s: CampusState.Ready) {
+private val timeOptions = listOf("Cualquiera") + (7..21).map { clock(it * 60) }
+private fun parseClock(str: String): Int {
+    val parts = str.split(":")
+    return parts[0].toInt() * 60 + parts[1].toInt()
+}
+
+@Composable fun Schedule(s: CampusState.Ready, model: CampusViewModel) {
     val a = s.campus.academic
     var group by rememberSaveable(s.settings.group) { mutableStateOf(s.settings.group) }
     var day by rememberSaveable { mutableIntStateOf(s.now.dayOfWeek.value) }
+    val filter by model.filter.collectAsState()
+
     Page {
         Head("Horarios académicos")
         Sub("Clases y docentes ficticios · Semana recurrente")
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Choice("Grupo", group, a.groups.map { it.code }) { group = it }
             Choice("Día", days[day-1], days) { day = days.indexOf(it)+1 }
-        }
-        val sessions = timetable(a.sessions, group, day)
-        if (sessions.isEmpty()) Panel(Modifier.fillMaxWidth()) { Title("Día sin clases"); Sub("Este grupo no tiene sesiones el día seleccionado.") }
-        CardGrid(sessions) {
-            Panel(Modifier.fillMaxWidth().then(if (isTelevision()) Modifier.campusFocus().focusable() else Modifier), selected = status(it, s.now) == "En curso") {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(clock(it.start) + " – " + clock(it.end), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-                    Tag(status(it, s.now))
+            Choice("Desde", filter.from?.let { clock(it) } ?: "Cualquiera", timeOptions) { sel ->
+                val minutes = if (sel == "Cualquiera") null else parseClock(sel)
+                model.filter.value = filter.copy(from = minutes)
+            }
+            Choice("Hasta", filter.to?.let { clock(it) } ?: "Cualquiera", timeOptions) { sel ->
+                val minutes = if (sel == "Cualquiera") null else parseClock(sel)
+                model.filter.value = filter.copy(to = minutes)
+            }
+            if (filter.active) {
+                OutlinedButton(onClick = { model.filter.value = ScheduleFilter() }, modifier = Modifier.campusFocus()) {
+                    Text("Limpiar filtros")
                 }
-                Title(it.subject)
-                Sub(a.subjects.first { course -> course.name == it.subject }.teacher + "   ·   " + it.room + "   ·   " + a.rooms.first { room -> room.name == it.room }.building)
+            }
+        }
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ClassStatus.entries.forEach { st ->
+                val selected = st in filter.statuses
+                FilterChip(
+                    selected = selected,
+                    onClick = { model.filter.value = filter.toggle(st) },
+                    label = { Text(st.label) },
+                    modifier = Modifier.campusFocus()
+                )
+            }
+        }
+        val baseSessions = timetable(a.sessions, group, day)
+        val sessions = filterSessions(baseSessions, filter, s.now)
+        if (baseSessions.isEmpty()) {
+            Panel(Modifier.fillMaxWidth()) { Title("Día sin clases"); Sub("Este grupo no tiene sesiones el día seleccionado.") }
+        } else if (sessions.isEmpty()) {
+            Panel(Modifier.fillMaxWidth()) { Title("Sin coincidencias"); Sub("Ninguna clase coincide con los filtros aplicados.") }
+        } else {
+            CardGrid(sessions) {
+                val st = classStatus(it, s.now)
+                val (cContainer, cContent) = when (st) {
+                    ClassStatus.IN_PROGRESS -> MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.onPrimaryContainer
+                    ClassStatus.UPCOMING -> MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.onSecondaryContainer
+                    ClassStatus.FINISHED -> MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurfaceVariant
+                }
+                val cd = countdown(it, s.now)
+                Panel(Modifier.fillMaxWidth().then(if (isTelevision()) Modifier.campusFocus().focusable() else Modifier), selected = st == ClassStatus.IN_PROGRESS) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(clock(it.start) + " – " + clock(it.end), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                        Tag(st.label, container = cContainer, content = cContent)
+                    }
+                    Title(it.subject)
+                    Sub(a.subjects.first { course -> course.name == it.subject }.teacher + "   ·   " + it.room + "   ·   " + a.rooms.first { room -> room.name == it.room }.building)
+                    if (cd != null) {
+                        Sub(cd)
+                    }
+                }
             }
         }
     }
@@ -62,15 +110,17 @@ private val days = DayOfWeek.entries.map { it.getDisplayName(TextStyle.FULL, spa
         val matches = a.rooms.filter { it.name.contains(query.trim(), true) && (building == "Todos" || it.building == building) && (state == "Todas" || roomState(it) == state) }
         if (matches.isEmpty()) Sub("Ningún aula coincide con la búsqueda y los filtros.")
         CardGrid(matches, 3) {
+            val availability = roomAvailability(it.name, a.sessions, s.now)
             Panel(Modifier.fillMaxWidth(), { selected = it.name }) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Title(it.name); Tag(roomState(it)) }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Title(it.name); Tag(availability.label()) }
                 Sub("${it.building}   ·   ${it.floor}   ·   ${it.capacity} plazas")
             }
         }
     }
     a.rooms.find { it.name == selected }?.let { room ->
+        val availability = roomAvailability(room.name, a.sessions, s.now)
         Detail("Aula " + room.name, { selected = null }) {
-            Tag(roomState(room)); Text(room.description); Sub("${room.building} · ${room.floor} · ${room.capacity} plazas")
+            Tag(availability.label()); Text(room.description); Sub("${room.building} · ${room.floor} · ${room.capacity} plazas")
             Title("Próximas clases")
             val next = upcoming(a.sessions.filter { it.room == room.name }, s.now).take(4)
             if (next.isEmpty()) Sub("Sin clases programadas.")

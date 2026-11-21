@@ -31,8 +31,12 @@ import com.example.smartcampus.domain.*
 @Composable fun Head(text: String) { Text(text, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold) }
 @Composable fun Title(text: String) { Text(text, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
 @Composable fun Sub(text: String) { Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-@Composable fun Tag(text: String) {
-    Surface(shape = RoundedCornerShape(6.dp), color = MaterialTheme.colorScheme.surfaceVariant) { Text(text, Modifier.padding(horizontal = 8.dp, vertical = 4.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+@Composable fun Tag(
+    text: String,
+    container: Color = MaterialTheme.colorScheme.surfaceVariant,
+    content: Color = MaterialTheme.colorScheme.onSurfaceVariant
+) {
+    Surface(shape = RoundedCornerShape(6.dp), color = container) { Text(text, Modifier.padding(horizontal = 8.dp, vertical = 4.dp), style = MaterialTheme.typography.labelMedium, color = content) }
 }
 @Composable fun Choice(label: String, value: String, options: List<String>, onSelect: (String) -> Unit) {
     var open by remember { mutableStateOf(false) }
@@ -60,4 +64,3 @@ import com.example.smartcampus.domain.*
     val cancel = remember { FocusRequester() }
     AlertDialog(onDismissRequest = close, title = { Title(title) }, text = { Text(body) }, confirmButton = { Button(action) { Text(accept) } }, dismissButton = { TextButton(close, Modifier.focusRequester(cancel).campusFocus()) { Text("Cancelar") }; LaunchedEffect(Unit) { cancel.requestFocus() } })
 }
-
