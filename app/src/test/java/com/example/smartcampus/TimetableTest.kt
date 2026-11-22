@@ -48,4 +48,22 @@ class TimetableTest {
             }
         }
     }
+    @Test fun formatsClockMinutesWithZeroPadding() {
+        assertEquals("00:00", clock(0))
+        assertEquals("01:05", clock(65))
+        assertEquals("08:00", clock(480))
+        assertEquals("09:30", clock(570))
+        assertEquals("23:59", clock(1439))
+    }
+    @Test fun upcomingEventsHandlesPastExactFutureAndMalformedDates() {
+        val now = LocalDateTime.parse("2026-11-16T10:00:45")
+        val past = CampusEvent(1, "Pasado", "Detalle", "Auditorio", "2026-11-16", "09:59")
+        val exact = CampusEvent(2, "Exacto", "Detalle", "Auditorio", "2026-11-16", "10:00")
+        val future = CampusEvent(3, "Futuro", "Detalle", "Patio", "2026-11-17", "12:30")
+        val badDate = CampusEvent(4, "Fecha mala", "Detalle", "Aula", "2026-99-99", "11:00")
+        val badTime = CampusEvent(5, "Hora mala", "Detalle", "Aula", "2026-11-18", "25:99")
+        val emptyDate = CampusEvent(6, "Vacía", "Detalle", "Aula", "", "10:00")
+        val result = upcomingEvents(listOf(past, exact, future, badDate, badTime, emptyDate), now)
+        assertEquals(listOf(exact, future), result)
+    }
 }

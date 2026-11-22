@@ -32,13 +32,15 @@ private val days = DayOfWeek.entries.map { it.getDisplayName(TextStyle.FULL, spa
         val sessions = timetable(a.sessions, group, day)
         if (sessions.isEmpty()) Panel(Modifier.fillMaxWidth()) { Title("Día sin clases"); Sub("Este grupo no tiene sesiones el día seleccionado.") }
         CardGrid(sessions) {
-            Panel(Modifier.fillMaxWidth().then(if (isTelevision()) Modifier.campusFocus().focusable() else Modifier), selected = status(it, s.now) == "En curso") {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Panel(Modifier.fillMaxWidth().fillMaxHeight().then(if (isTelevision()) Modifier.campusFocus().focusable() else Modifier), selected = status(it, s.now) == "En curso") {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Text(clock(it.start) + " – " + clock(it.end), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                     Tag(status(it, s.now))
                 }
                 Title(it.subject)
-                Sub(a.subjects.first { course -> course.name == it.subject }.teacher + "   ·   " + it.room + "   ·   " + a.rooms.first { room -> room.name == it.room }.building)
+                val teacher = a.subjects.first { course -> course.name == it.subject }.teacher
+                val building = a.rooms.first { room -> room.name == it.room }.building.replace(' ', '\u00A0')
+                Sub("$teacher · ${it.room} · $building")
             }
         }
     }
@@ -46,6 +48,7 @@ private val days = DayOfWeek.entries.map { it.getDisplayName(TextStyle.FULL, spa
 
 @Composable fun Rooms(s: CampusState.Ready) {
     val a = s.campus.academic
+    val tv = isTelevision()
     var query by rememberSaveable { mutableStateOf("") }
     var building by rememberSaveable { mutableStateOf("Todos") }
     var state by rememberSaveable { mutableStateOf("Todas") }
@@ -62,15 +65,27 @@ private val days = DayOfWeek.entries.map { it.getDisplayName(TextStyle.FULL, spa
         val matches = a.rooms.filter { it.name.contains(query.trim(), true) && (building == "Todos" || it.building == building) && (state == "Todas" || roomState(it) == state) }
         if (matches.isEmpty()) Sub("Ningún aula coincide con la búsqueda y los filtros.")
         CardGrid(matches, 3) {
-            Panel(Modifier.fillMaxWidth(), { selected = it.name }) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Title(it.name); Tag(roomState(it)) }
-                Sub("${it.building}   ·   ${it.floor}   ·   ${it.capacity} plazas")
+            val buildingLabel = it.building.replace(' ', '\u00A0')
+            val floorLabel = it.floor.replace(' ', '\u00A0')
+            val capacityLabel = "${it.capacity}\u00A0plazas"
+            Panel(Modifier.fillMaxWidth().fillMaxHeight(), { selected = it.name }) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Title(it.name, compact = tv)
+                    Tag(roomState(it))
+                }
+                if (tv) {
+                    Sub("$buildingLabel · $capacityLabel")
+                    Sub(floorLabel)
+                } else {
+                    Sub("$buildingLabel · $floorLabel · $capacityLabel")
+                }
             }
         }
     }
     a.rooms.find { it.name == selected }?.let { room ->
         Detail("Aula " + room.name, { selected = null }) {
-            Tag(roomState(room)); Text(room.description); Sub("${room.building} · ${room.floor} · ${room.capacity} plazas")
+            Tag(roomState(room)); Text(room.description)
+            Sub("${room.building.replace(' ', '\u00A0')} · ${room.floor.replace(' ', '\u00A0')} · ${room.capacity}\u00A0plazas")
             Title("Próximas clases")
             val next = upcoming(a.sessions.filter { it.room == room.name }, s.now).take(4)
             if (next.isEmpty()) Sub("Sin clases programadas.")
