@@ -1,20 +1,20 @@
 package com.example.smartcampus.ui.screens
 
-import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.*
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.*
-import com.example.smartcampus.ui.components.*
-import com.example.smartcampus.data.local.*
-import com.example.smartcampus.ui.*
 import com.example.smartcampus.domain.*
+import com.example.smartcampus.ui.*
+import com.example.smartcampus.ui.components.*
 import java.time.LocalDate
+
+private fun formatBoardDate(date: String): String =
+    runCatching { LocalDate.parse(date).label("d MMM yyyy") }.getOrDefault(date)
 
 @Composable fun Board(s: CampusState.Ready, model: CampusViewModel, events: Boolean, target: Long?, consumed: () -> Unit) {
     val admin by model.admin.collectAsState()
@@ -37,12 +37,12 @@ import java.time.LocalDate
         Row(verticalAlignment = Alignment.CenterVertically) {
             Sub(if (admin) "Administración de demostración" else if (events) "Agenda académica y cultural" else "Comunicados del campus")
         }
-        if (admin) Button({ selected = null; editor = true }) { Text("Crear $noun") }
+        if (admin) Button({ selected = null; editor = true }, Modifier.campusFocus(CircleShape)) { Text("Crear $noun") }
         if (events) {
             val entries = if (admin) s.campus.events else upcomingEvents(s.campus.events, s.now)
             CardGrid(entries) {
-                Panel(Modifier.fillMaxWidth(), { selected = it.id }) {
-                    Tag(LocalDate.parse(it.date).label("d MMM yyyy") + "  ·  " + it.time)
+                Panel(Modifier.fillMaxWidth().fillMaxHeight(), { selected = it.id }) {
+                    Tag(formatBoardDate(it.date) + "  ·  " + it.time)
                     Title(it.title); Sub(it.place)
                 }
             }
@@ -50,15 +50,21 @@ import java.time.LocalDate
         } else {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 (listOf("Todas") + categories).forEach { option ->
-                    FilterChip(category == option, { category = option }, { Text(option) }, Modifier.campusFocus())
+                    FilterChip(
+                        selected = category == option,
+                        onClick = { category = option },
+                        label = { Text(option) },
+                        modifier = Modifier.campusFocus(CircleShape),
+                        shape = CircleShape
+                    )
                 }
             }
             val entries = notices(s.campus.notices, category)
             CardGrid(entries) {
-                Panel(Modifier.fillMaxWidth(), { selected = it.id }) {
+                Panel(Modifier.fillMaxWidth().fillMaxHeight(), { selected = it.id }) {
                     Tag(if (it.priority == "Alta") "★  Destacado  ·  " + it.category else it.category)
-                    Title(it.title); Sub(LocalDate.parse(it.date).label("d MMM yyyy") + "  ·  Prioridad " + it.priority.lowercase())
-                    Text(it.description, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                    Title(it.title); Sub(formatBoardDate(it.date) + "  ·  Prioridad " + it.priority.lowercase())
+                    Text(it.description, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
             }
             if (entries.isEmpty()) Sub("Sin avisos en esta categoría.")
@@ -69,9 +75,12 @@ import java.time.LocalDate
             notice?.let { model.delete(it, close) }; event?.let { model.delete(it, close) }
         }
         event != null || notice != null -> Detail(event?.title ?: notice!!.title, close) {
-            if (event != null) { Tag(event.date + "  ·  " + event.time); Title(event.place); Text(event.description) }
-            if (notice != null) { Tag(notice.category + "  ·  Prioridad " + notice.priority); Sub(notice.date); Text(notice.description) }
-            if (admin) Row { TextButton({ editor = true }) { Text("Editar") }; TextButton({ confirm = true }) { Text("Eliminar") } }
+            if (event != null) { Tag(formatBoardDate(event.date) + "  ·  " + event.time); Title(event.place); Text(event.description) }
+            if (notice != null) { Tag(notice.category + "  ·  Prioridad " + notice.priority); Sub(formatBoardDate(notice.date)); Text(notice.description) }
+            if (admin) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton({ editor = true }, Modifier.campusFocus(CircleShape)) { Text("Editar") }
+                TextButton({ confirm = true }, Modifier.campusFocus(CircleShape)) { Text("Eliminar") }
+            }
         }
     }
 }

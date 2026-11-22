@@ -1,1 +1,6 @@
-<resources><color name="campus_blue">#1855C8</color></resources>
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="campus_green">#006448</color>
+    <color name="campus_green_dark">#103D2E</color>
+    <color name="campus_gold">#FFE186</color>
+</resources>

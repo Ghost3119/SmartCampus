@@ -103,5 +103,11 @@ fun upcoming(sessions: List<Session>, now: LocalDateTime): List<Occurrence> =
         Occurrence(it, date)
     }.sortedWith(compareBy({ it.date }, { it.session.start }))
 
-fun upcomingEvents(items: List<CampusEvent>, now: LocalDateTime) =
-    items.filter { !LocalDateTime.parse(it.date + "T" + it.time).isBefore(now.withSecond(0).withNano(0)) }
+fun upcomingEvents(items: List<CampusEvent>, now: LocalDateTime): List<CampusEvent> {
+    val threshold = now.withSecond(0).withNano(0)
+    return items.filter { event ->
+        runCatching {
+            !LocalDateTime.parse("${event.date}T${event.time}").isBefore(threshold)
+        }.getOrDefault(false)
+    }
+}

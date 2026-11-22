@@ -34,14 +34,24 @@ class CampusViewModel(app: Application) : AndroidViewModel(app) {
     val admin = MutableStateFlow(false)
     fun retry() { reload.value++ }
     fun dismiss() { _message.value = null }
-    private fun update(success: String? = null, done: () -> Unit = {}, action: suspend () -> Unit) {
+    private fun update(
+        success: String? = null,
+        done: () -> Unit = {},
+        onFinished: () -> Unit = {},
+        action: suspend () -> Unit
+    ) {
         viewModelScope.launch {
             try {
                 action()
                 _message.value = success
                 done()
-            } catch (e: CancellationException) { throw e }
-            catch (e: Exception) { _message.value = "No se pudo guardar el cambio. Intenta de nuevo." }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _message.value = "No se pudo guardar el cambio. Intenta de nuevo."
+            } finally {
+                onFinished()
+            }
         }
     }
     fun group(value: String) = update { prefs.group(value) }
@@ -49,8 +59,12 @@ class CampusViewModel(app: Application) : AndroidViewModel(app) {
     fun interval(seconds: Int) = update { prefs.interval(seconds) }
     fun fullscreen(value: Boolean) = update { prefs.fullscreen(value) }
     fun restore() = update("Datos de demostración restaurados.") { repo.restore() }
-    fun save(item: Notice, done: () -> Unit) = update("Aviso guardado.", done) { check(admin.value); repo.dao.save(item) }
-    fun save(item: CampusEvent, done: () -> Unit) = update("Evento guardado.", done) { check(admin.value); repo.dao.save(item) }
-    fun delete(item: Notice, done: () -> Unit) = update("Aviso eliminado.", done) { check(admin.value); repo.dao.delete(item) }
-    fun delete(item: CampusEvent, done: () -> Unit) = update("Evento eliminado.", done) { check(admin.value); repo.dao.delete(item) }
+    fun save(item: Notice, done: () -> Unit, onFinished: () -> Unit = {}) =
+        update("Aviso guardado.", done, onFinished) { check(admin.value); repo.dao.save(item) }
+    fun save(item: CampusEvent, done: () -> Unit, onFinished: () -> Unit = {}) =
+        update("Evento guardado.", done, onFinished) { check(admin.value); repo.dao.save(item) }
+    fun delete(item: Notice, done: () -> Unit, onFinished: () -> Unit = {}) =
+        update("Aviso eliminado.", done, onFinished) { check(admin.value); repo.dao.delete(item) }
+    fun delete(item: CampusEvent, done: () -> Unit, onFinished: () -> Unit = {}) =
+        update("Evento eliminado.", done, onFinished) { check(admin.value); repo.dao.delete(item) }
 }

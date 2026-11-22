@@ -6,15 +6,19 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.smartcampus.navigation.CampusShell
 import com.example.smartcampus.ui.*
+import com.example.smartcampus.ui.components.campusFocus
 import com.example.smartcampus.ui.theme.CampusTheme
 
 class MainActivity : ComponentActivity() {
@@ -31,12 +35,18 @@ class MainActivity : ComponentActivity() {
                 if (ready?.settings?.fullscreen == true) controller.hide(WindowInsetsCompat.Type.systemBars())
                 else controller.show(WindowInsetsCompat.Type.systemBars())
             }
-            CampusTheme(ready?.settings?.theme ?: "Sistema") {
+            CampusTheme(ready?.settings?.theme ?: "Claro") {
                 Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    Box(Modifier.fillMaxSize().safeDrawingPadding(), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                    Box(Modifier.fillMaxSize().safeDrawingPadding(), contentAlignment = Alignment.Center) {
                         when {
                             ready != null -> CampusShell(ready, model)
-                            state is CampusState.Error -> Column { Text("No se pudieron cargar los datos locales."); Button(model::retry) { Text("Reintentar") } }
+                            state is CampusState.Error -> Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Text("No se pudieron cargar los datos locales.")
+                                Button(model::retry, Modifier.campusFocus(CircleShape)) { Text("Reintentar") }
+                            }
                             else -> CircularProgressIndicator()
                         }
                     }

@@ -2,18 +2,17 @@ package com.example.smartcampus.ui.screens
 
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.*
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.*
-import com.example.smartcampus.ui.components.*
 import com.example.smartcampus.data.local.*
-import com.example.smartcampus.ui.*
 import com.example.smartcampus.domain.*
+import com.example.smartcampus.ui.*
+import com.example.smartcampus.ui.components.*
 import java.time.DayOfWeek
 import java.time.format.TextStyle
 
@@ -45,19 +44,20 @@ private fun parseClock(str: String): Int {
                 model.filter.value = filter.copy(to = minutes)
             }
             if (filter.active) {
-                OutlinedButton(onClick = { model.filter.value = ScheduleFilter() }, modifier = Modifier.campusFocus()) {
+                OutlinedButton(onClick = { model.filter.value = ScheduleFilter() }, modifier = Modifier.campusFocus(CircleShape)) {
                     Text("Limpiar filtros")
                 }
             }
         }
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             ClassStatus.entries.forEach { st ->
                 val selected = st in filter.statuses
                 FilterChip(
                     selected = selected,
                     onClick = { model.filter.value = filter.toggle(st) },
                     label = { Text(st.label) },
-                    modifier = Modifier.campusFocus()
+                    modifier = Modifier.campusFocus(CircleShape),
+                    shape = CircleShape
                 )
             }
         }
@@ -71,18 +71,26 @@ private fun parseClock(str: String): Int {
             CardGrid(sessions) {
                 val st = classStatus(it, s.now)
                 val (cContainer, cContent) = when (st) {
-                    ClassStatus.IN_PROGRESS -> MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.onPrimaryContainer
+                    ClassStatus.IN_PROGRESS -> MaterialTheme.colorScheme.primary to MaterialTheme.colorScheme.onPrimary
                     ClassStatus.UPCOMING -> MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.onSecondaryContainer
                     ClassStatus.FINISHED -> MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurfaceVariant
                 }
                 val cd = countdown(it, s.now)
-                Panel(Modifier.fillMaxWidth().then(if (isTelevision()) Modifier.campusFocus().focusable() else Modifier), selected = st == ClassStatus.IN_PROGRESS) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Panel(
+                    Modifier
+                        .fillMaxWidth()
+                        .fillMaxHeight()
+                        .then(if (isTelevision()) Modifier.campusFocus().focusable() else Modifier),
+                    selected = st == ClassStatus.IN_PROGRESS
+                ) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Text(clock(it.start) + " – " + clock(it.end), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                         Tag(st.label, container = cContainer, content = cContent)
                     }
                     Title(it.subject)
-                    Sub(a.subjects.first { course -> course.name == it.subject }.teacher + "   ·   " + it.room + "   ·   " + a.rooms.first { room -> room.name == it.room }.building)
+                    val teacher = a.subjects.first { course -> course.name == it.subject }.teacher
+                    val building = a.rooms.first { room -> room.name == it.room }.building.replace(' ', '\u00A0')
+                    Sub("$teacher · ${it.room} · $building")
                     if (cd != null) {
                         Sub(cd)
                     }
@@ -94,6 +102,7 @@ private fun parseClock(str: String): Int {
 
 @Composable fun Rooms(s: CampusState.Ready) {
     val a = s.campus.academic
+    val tv = isTelevision()
     var query by rememberSaveable { mutableStateOf("") }
     var building by rememberSaveable { mutableStateOf("Todos") }
     var state by rememberSaveable { mutableStateOf("Todas") }
@@ -111,16 +120,30 @@ private fun parseClock(str: String): Int {
         if (matches.isEmpty()) Sub("Ningún aula coincide con la búsqueda y los filtros.")
         CardGrid(matches, 3) {
             val availability = roomAvailability(it.name, a.sessions, s.now)
-            Panel(Modifier.fillMaxWidth(), { selected = it.name }) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Title(it.name); Tag(availability.label()) }
-                Sub("${it.building}   ·   ${it.floor}   ·   ${it.capacity} plazas")
+            val buildingLabel = it.building.replace(' ', '\u00A0')
+            val floorLabel = it.floor.replace(' ', '\u00A0')
+            val capacityLabel = "${it.capacity}\u00A0plazas"
+            Panel(Modifier.fillMaxWidth().fillMaxHeight(), { selected = it.name }) {
+                if (tv) {
+                    Title(it.name, compact = true)
+                    Tag(availability.label())
+                    Sub("$buildingLabel · $capacityLabel")
+                    Sub(floorLabel)
+                } else {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Title(it.name)
+                        Tag(availability.label())
+                    }
+                    Sub("$buildingLabel · $floorLabel · $capacityLabel")
+                }
             }
         }
     }
     a.rooms.find { it.name == selected }?.let { room ->
         val availability = roomAvailability(room.name, a.sessions, s.now)
         Detail("Aula " + room.name, { selected = null }) {
-            Tag(availability.label()); Text(room.description); Sub("${room.building} · ${room.floor} · ${room.capacity} plazas")
+            Tag(availability.label()); Text(room.description)
+            Sub("${room.building.replace(' ', '\u00A0')} · ${room.floor.replace(' ', '\u00A0')} · ${room.capacity}\u00A0plazas")
             Title("Próximas clases")
             val next = upcoming(a.sessions.filter { it.room == room.name }, s.now).take(4)
             if (next.isEmpty()) Sub("Sin clases programadas.")
