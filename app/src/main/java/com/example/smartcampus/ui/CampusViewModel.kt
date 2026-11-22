@@ -5,6 +5,7 @@ import androidx.lifecycle.*
 import com.example.smartcampus.data.local.*
 import com.example.smartcampus.data.repository.*
 import com.example.smartcampus.di.CampusApplication
+import com.example.smartcampus.domain.ScheduleFilter
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import java.time.LocalDateTime
@@ -20,17 +21,12 @@ class CampusViewModel(app: Application) : AndroidViewModel(app) {
     private val repo = container.repository
     private val prefs = container.preferences
     private val reload = MutableStateFlow(0)
-    private val tick = flow {
-        while (true) {
-            emit(LocalDateTime.now())
-            delay(1000L * (60 - LocalDateTime.now().second))
-        }
-    }
+    val filter = MutableStateFlow(ScheduleFilter())
     val state = reload.flatMapLatest {
         flow<CampusState> {
             if (it > 0) emit(CampusState.Loading)
             repo.initialize()
-            emitAll(combine(repo.campus, prefs.settings, tick, CampusState::Ready))
+            emitAll(combine(repo.campus, prefs.settings, repo.clock, CampusState::Ready))
         }.catch { emit(CampusState.Error) }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(0), CampusState.Loading)
     private val _message = MutableStateFlow<String?>(null)
@@ -72,4 +68,3 @@ class CampusViewModel(app: Application) : AndroidViewModel(app) {
     fun delete(item: CampusEvent, done: () -> Unit, onFinished: () -> Unit = {}) =
         update("Evento eliminado.", done, onFinished) { check(admin.value); repo.dao.delete(item) }
 }
-

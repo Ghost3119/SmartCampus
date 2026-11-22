@@ -112,7 +112,7 @@ private val sections = linkedMapOf("Inicio" to R.drawable.nav_inicio, "Horarios"
                 CompositionLocalProvider(LocalSectionTick provides sectionTick) {
                     NavHost(nav, "Inicio", Modifier.weight(1f).focusRequester(contentFocus).focusGroup()) {
                         composable("Inicio") { Dashboard(state, go) { module, id -> target = id; go(module) } }
-                        composable("Horarios") { Schedule(state) }
+                        composable("Horarios") { Schedule(state, model) }
                         composable("Aulas") { Rooms(state) }
                         composable("Avisos") { Board(state, model, false, target) { target = null } }
                         composable("Eventos") { Board(state, model, true, target) { target = null } }

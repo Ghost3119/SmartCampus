@@ -11,8 +11,10 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.*
 import androidx.compose.ui.focus.*
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.*
 import androidx.compose.ui.window.*
 import com.example.smartcampus.ui.theme.CampusDesign
@@ -118,15 +120,20 @@ private class TvBringIntoViewSpec(
     )
 }
 @Composable fun Sub(text: String) { Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-@Composable fun Tag(text: String) {
-    Surface(shape = RoundedCornerShape(6.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
+@Composable fun Tag(
+    text: String,
+    container: Color = MaterialTheme.colorScheme.surfaceVariant,
+    content: Color = MaterialTheme.colorScheme.onSurfaceVariant
+) {
+    Surface(shape = RoundedCornerShape(6.dp), color = container) {
         Text(
             text,
             Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
             style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = content,
             maxLines = 1,
-            softWrap = false
+            softWrap = false,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }
@@ -170,4 +177,3 @@ private class TvBringIntoViewSpec(
         }
     )
 }
-
